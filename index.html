@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Finance Tracker Studio</title>
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-50 font-sans text-gray-800 pb-12">
@@ -27,6 +25,34 @@
     <!-- ================= DASHBOARD SECTION ================= -->
     <section id="dashboardSection" class="block space-y-6">
       
+      <!-- Filter Controls -->
+      <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h2 class="text-lg font-bold text-gray-800 mb-3 sm:mb-0">Dashboard Overview</h2>
+        <div class="flex space-x-3">
+          <select id="filterYear" onchange="updateDashboard()" class="p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm font-medium cursor-pointer">
+            <option value="All">All Years</option>
+            <option value="2025">2025</option>
+            <option value="2026" selected>2026</option>
+            <option value="2027">2027</option>
+          </select>
+          <select id="filterMonth" onchange="updateDashboard()" class="p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm font-medium cursor-pointer">
+            <option value="All" selected>All Months</option>
+            <option value="January">January</option>
+            <option value="February">February</option>
+            <option value="March">March</option>
+            <option value="April">April</option>
+            <option value="May">May</option>
+            <option value="June">June</option>
+            <option value="July">July</option>
+            <option value="August">August</option>
+            <option value="September">September</option>
+            <option value="October">October</option>
+            <option value="November">November</option>
+            <option value="December">December</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Summary Cards -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -38,7 +64,7 @@
           <h3 id="dashTotalMonthly" class="text-3xl font-bold text-blue-600">₱0.00</h3>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
-          <p class="text-sm font-medium text-gray-500 mb-1">Expenses (This Year)</p>
+          <p class="text-sm font-medium text-gray-500 mb-1">Total Expenses</p>
           <h3 id="dashTotalExpenses" class="text-3xl font-bold text-green-600">₱0.00</h3>
         </div>
       </div>
@@ -52,7 +78,7 @@
           </div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4">Expenses by Month</h3>
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Expenses Overview</h3>
           <div class="relative h-64 w-full flex justify-center">
             <canvas id="expenseChart"></canvas>
           </div>
@@ -72,7 +98,6 @@
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Term (Months)</label><input type="number" id="term" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Date Approved</label><input type="date" id="date_approved" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Monthly Amortization</label><input type="number" id="monthly_amortization" step="0.01" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
-          
           <div class="md:col-span-3 flex justify-end space-x-3 mt-2">
             <button type="button" id="loanCancelBtn" onclick="cancelEdit('loan')" class="hidden px-6 py-2 rounded-lg font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Cancel</button>
             <button type="submit" id="loanSubmitBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium">Save Loan</button>
@@ -110,7 +135,6 @@
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Month</label><select id="month" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none"><option value="January">January</option><option value="February">February</option><option value="March">March</option><option value="April">April</option><option value="May" selected>May</option><option value="June">June</option><option value="July">July</option><option value="August">August</option><option value="September">September</option><option value="October">October</option><option value="November">November</option><option value="December">December</option></select></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Type of Expense</label><input type="text" id="expense_type" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Amount</label><input type="number" id="expense_amount" step="0.01" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none"></div>
-          
           <div class="md:col-span-4 flex justify-end space-x-3 mt-2">
             <button type="button" id="expenseCancelBtn" onclick="cancelEdit('expense')" class="hidden px-6 py-2 rounded-lg font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Cancel</button>
             <button type="submit" id="expenseSubmitBtn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition font-medium">Save Expense</button>
@@ -143,12 +167,11 @@
     
     let currentLoans = [];
     let currentExpenses = [];
-    
-    // Variables to hold chart instances so we can update them safely
     let loanChartObj = null;
     let expenseChartObj = null;
 
-    // Tab Switching
+    const allMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
     function switchTab(tab) {
       document.getElementById('dashboardSection').className = tab === 'dashboard' ? 'block space-y-6' : 'hidden';
       document.getElementById('loanSection').className = tab === 'loan' ? 'block space-y-6' : 'hidden';
@@ -162,7 +185,6 @@
     const formatMoney = (amount) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
     const formatDateForInput = (isoDate) => isoDate ? new Date(isoDate).toISOString().split('T')[0] : '';
 
-    // Fetch Data
     async function fetchData(sheetName) {
       const tbody = document.getElementById(sheetName === 'loans' ? 'loanTableBody' : 'expenseTableBody');
       tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">Loading ${sheetName}...</td></tr>`;
@@ -174,58 +196,76 @@
         if (result.status === "success") {
           if(sheetName === 'loans') currentLoans = result.data;
           if(sheetName === 'expenses') currentExpenses = result.data;
-          
           renderTable(result.data, sheetName, tbody);
-          updateDashboard(); // Refresh dashboard whenever data changes
+          updateDashboard();
         }
       } catch (error) {
         tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
       }
     }
 
-    // Process and Update Dashboard Charts & Cards
     function updateDashboard() {
-      const currentYear = 2026; // You can make this dynamic: new Date().getFullYear()
+      const fYear = document.getElementById('filterYear').value;
+      const fMonth = document.getElementById('filterMonth').value;
 
-      // --- CALCULATE SUMMARY CARDS ---
-      const activeLoans = currentLoans.filter(l => l.status === 'Active');
+      // 1. Filter Loans by date_approved
+      const filteredLoans = currentLoans.filter(l => {
+        if (!l.date_approved) return false;
+        const d = new Date(l.date_approved);
+        const lYear = d.getFullYear().toString();
+        const lMonth = allMonthNames[d.getMonth()];
+        
+        const matchYear = fYear === 'All' || lYear === fYear;
+        const matchMonth = fMonth === 'All' || lMonth === fMonth;
+        return matchYear && matchMonth;
+      });
+
+      // 2. Filter Expenses by exact year/month columns
+      const filteredExpenses = currentExpenses.filter(e => {
+        const eYear = e.year ? e.year.toString() : "";
+        const eMonth = e.month ? e.month.toString() : "";
+        
+        const matchYear = fYear === 'All' || eYear === fYear;
+        const matchMonth = fMonth === 'All' || eMonth === fMonth;
+        return matchYear && matchMonth;
+      });
+
+      // 3. Calculate Cards based on filtered data
+      const activeLoans = filteredLoans.filter(l => l.status === 'Active');
       const totalActiveLoanAmount = activeLoans.reduce((sum, l) => sum + Number(l.amount || 0), 0);
       const totalMonthlyAmortization = activeLoans.reduce((sum, l) => sum + Number(l.monthly_amortization || 0), 0);
-      
-      const thisYearExpenses = currentExpenses.filter(e => Number(e.year) === currentYear);
-      const totalExpenses = thisYearExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
       document.getElementById('dashTotalLoans').textContent = formatMoney(totalActiveLoanAmount);
       document.getElementById('dashTotalMonthly').textContent = formatMoney(totalMonthlyAmortization);
       document.getElementById('dashTotalExpenses').textContent = formatMoney(totalExpenses);
 
-      // --- RENDER LOAN DOUGHNUT CHART ---
+      // 4. Update Loan Doughnut Chart
       const loanTypes = {};
       activeLoans.forEach(l => {
         loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + Number(l.amount || 0);
       });
 
-      if (loanChartObj) loanChartObj.destroy(); // Remove old chart before drawing new one
+      if (loanChartObj) loanChartObj.destroy();
       const ctxLoan = document.getElementById('loanChart').getContext('2d');
       loanChartObj = new Chart(ctxLoan, {
         type: 'doughnut',
         data: {
-          labels: Object.keys(loanTypes),
+          labels: Object.keys(loanTypes).length ? Object.keys(loanTypes) : ['No Data'],
           datasets: [{
-            data: Object.values(loanTypes),
-            backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'],
+            data: Object.values(loanTypes).length ? Object.values(loanTypes) : [1],
+            backgroundColor: Object.keys(loanTypes).length ? ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'] : ['#e5e7eb'],
             borderWidth: 0
           }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
       });
 
-      // --- RENDER EXPENSE BAR CHART ---
+      // 5. Update Expense Bar Chart
       const monthTotals = {};
-      const allMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      allMonths.forEach(m => monthTotals[m] = 0); // Initialize all months to 0
+      allMonthNames.forEach(m => monthTotals[m] = 0);
       
-      thisYearExpenses.forEach(e => {
+      filteredExpenses.forEach(e => {
         if(monthTotals[e.month] !== undefined) {
           monthTotals[e.month] += Number(e.amount || 0);
         }
@@ -236,10 +276,10 @@
       expenseChartObj = new Chart(ctxExpense, {
         type: 'bar',
         data: {
-          labels: allMonths,
+          labels: fMonth === 'All' ? allMonthNames : [fMonth], // If specific month chosen, only show that bar
           datasets: [{
             label: 'Expenses (₱)',
-            data: Object.values(monthTotals),
+            data: fMonth === 'All' ? Object.values(monthTotals) : [monthTotals[fMonth]],
             backgroundColor: '#10b981',
             borderRadius: 4
           }]
@@ -253,7 +293,6 @@
       });
     }
 
-    // Render Tables
     function renderTable(data, sheetName, tbody) {
       tbody.innerHTML = "";
       if (!data || data.length === 0) return tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">No records found.</td></tr>`;
@@ -271,7 +310,6 @@
       });
     }
 
-    // Form Handling (Edit, Cancel, Delete, Submit)
     function editRecord(s, r) {
       if (s === 'loans') {
         const rec = currentLoans.find(x => x._rowIndex === r);
