@@ -173,7 +173,7 @@
             </tr>
           </thead>
           <tbody id="ledgerTableBody" class="divide-y divide-gray-100">
-             </tbody>
+          </tbody>
         </table>
       </div>
     </div>
@@ -222,10 +222,8 @@
         currentPayments = paymentsRes.data || [];
         currentExpenses = expensesRes.data || [];
 
-        // Hydrate loans with dynamic ledger computations
         currentLoans = rawLoans.map(loan => {
           const ledger = currentPayments.filter(p => p.loan_id === loan.loan_id);
-          
           const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
           const balance = Number(loan.amount) - totalPaid;
           const progress = Number(loan.amount) > 0 ? (totalPaid / Number(loan.amount)) * 100 : 0;
@@ -243,7 +241,7 @@
             balance: balance,
             progress: progress,
             computed_status: computedStatus,
-            ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) // Ensure chronological order
+            ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) 
           };
         });
 
@@ -390,7 +388,6 @@
       });
     }
 
-    // Ledger Modal Functions
     function openLedgerModal(loanId) {
       const loan = currentLoans.find(l => l.loan_id === loanId);
       if (!loan) return;
@@ -410,7 +407,7 @@
             : `<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold">Pending</span>`;
 
         let actionBtn = isPaid 
-          ? `<span class="text-xs text-gray-400 font-medium">Cleared</span>`
+          ? `<button onclick="unmarkPaymentPaid('${payment.payment_id}')" class="text-red-500 hover:text-red-700 underline text-xs font-bold transition">Undo Payment</button>`
           : `<button onclick="markPaymentPaid('${payment.payment_id}')" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-xs font-bold transition">Pay Now</button>`;
 
         const tr = document.createElement('tr');
@@ -439,10 +436,22 @@
         const payload = { action: 'mark_paid', payment_id: paymentId };
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         if ((await res.json()).status === "success") {
-          closeLedgerModal(); // Close modal to refresh data
-          fetchFinanceData(); // Refetch everything to update balances and statuses
+          closeLedgerModal(); 
+          fetchFinanceData(); 
         }
       } catch (e) { alert('Error processing payment.'); }
+    }
+
+    async function unmarkPaymentPaid(paymentId) {
+      if (!confirm("Revert this payment back to Pending?")) return;
+      try {
+        const payload = { action: 'unmark_paid', payment_id: paymentId };
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        if ((await res.json()).status === "success") {
+          closeLedgerModal(); 
+          fetchFinanceData(); 
+        }
+      } catch (e) { alert('Error reverting payment.'); }
     }
 
     function editRecord(s, r) {
@@ -476,15 +485,14 @@
       if (!confirm("Delete this record?")) return;
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', sheetName: s, rowIndex: r }) });
-        if ((await res.json()).status === "success") fetchFinanceData(); // Always refresh everything
+        if ((await res.json()).status === "success") fetchFinanceData(); 
       } catch (e) { alert('Error deleting record.'); }
     }
 
     async function submitLoan(e) {
       e.preventDefault();
-      
       const payload = { 
-        action: 'add_loan', // Matches the new Apps Script architecture
+        action: 'add_loan', 
         data: {
           loan_type: document.getElementById('loan_type').value,
           amount: document.getElementById('amount').value,
@@ -516,7 +524,7 @@
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         if ((await res.json()).status === "success") { 
           cancelEdit('expense'); 
-          fetchFinanceData(); // Ensure UI completely syncs
+          fetchFinanceData(); 
         }
       } catch (err) { alert('Error saving expense.'); }
     }
