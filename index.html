@@ -22,7 +22,6 @@
     </div>
 
     <section id="dashboardSection" class="block space-y-6">
-      
       <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <h2 class="text-lg font-bold text-gray-800 mb-3 sm:mb-0">Dashboard Overview</h2>
         <div class="flex space-x-3">
@@ -87,15 +86,14 @@
         <form id="loanForm" onsubmit="submitLoan(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input type="hidden" id="loan_row_index" value="">
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Type of Loan</label><input type="text" id="loan_type" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
-          <div><label class="block text-sm font-medium text-gray-600 mb-1">Status</label><select id="status" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"><option value="Active">Active</option><option value="Fully Paid">Fully Paid</option><option value="Pending">Pending</option></select></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Amount</label><input type="number" id="amount" step="0.01" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Term (Months)</label><input type="number" id="term" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Date Approved</label><input type="date" id="date_approved" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Monthly Amortization</label><input type="number" id="monthly_amortization" step="0.01" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
-          <div><label class="block text-sm font-medium text-gray-600 mb-1">Total Paid</label><input type="number" id="total_paid" step="0.01" value="0" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
+          
           <div class="md:col-span-3 flex justify-end space-x-3 mt-2">
             <button type="button" id="loanCancelBtn" onclick="cancelEdit('loan')" class="hidden px-6 py-2 rounded-lg font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Cancel</button>
-            <button type="submit" id="loanSubmitBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium">Save Loan</button>
+            <button type="submit" id="loanSubmitBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium">Save Loan & Generate Ledger</button>
           </div>
         </form>
       </div>
@@ -107,8 +105,7 @@
               <th class="p-3 font-medium">Type</th>
               <th class="p-3 font-medium">Status</th>
               <th class="p-3 font-medium">Amount</th>
-              <th class="p-3 font-medium">Total Paid</th>
-              <th class="p-3 font-medium">Balance</th>
+              <th class="p-3 font-medium">Progress / Balance</th>
               <th class="p-3 font-medium">Term</th>
               <th class="p-3 font-medium">Date</th>
               <th class="p-3 font-medium">Monthly</th>
@@ -116,7 +113,7 @@
             </tr>
           </thead>
           <tbody id="loanTableBody" class="text-sm divide-y divide-gray-100">
-            <tr><td colspan="9" class="p-4 text-center text-gray-400">Loading data...</td></tr>
+            <tr><td colspan="8" class="p-4 text-center text-gray-400">Loading data...</td></tr>
           </tbody>
         </table>
       </div>
@@ -157,12 +154,38 @@
     </section>
   </div>
 
+  <div id="ledgerModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50 transition-opacity">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+        <h3 class="text-xl font-bold text-gray-800" id="modalLoanTitle">Amortization Schedule</h3>
+        <button onclick="closeLedgerModal()" class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      <div class="p-5 overflow-y-auto">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead class="bg-gray-100 text-gray-600 sticky top-0">
+            <tr>
+              <th class="p-3 font-medium rounded-tl-lg">Inst. #</th>
+              <th class="p-3 font-medium">Due Date</th>
+              <th class="p-3 font-medium">Amount Due</th>
+              <th class="p-3 font-medium">Status</th>
+              <th class="p-3 font-medium">Date Paid</th>
+              <th class="p-3 font-medium rounded-tr-lg text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerTableBody" class="divide-y divide-gray-100">
+             </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <script>
     // 🔴🔴🔴 PASTE YOUR GOOGLE SCRIPT URL HERE 🔴🔴🔴
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxaxrC2tv7nlbiX_pQbkx0kmvqrm17kvhVV5AIClKHWYinpHLU5pwq9Ou1sGQx6IyIt/exec";
+    const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
     
     let currentLoans = [];
     let currentExpenses = [];
+    let currentPayments = [];
     let loanChartObj = null;
     let expenseChartObj = null;
 
@@ -181,23 +204,56 @@
     const formatMoney = (amount) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
     const formatDateForInput = (isoDate) => isoDate ? new Date(isoDate).toISOString().split('T')[0] : '';
 
-    async function fetchData(sheetName) {
-      const tbody = document.getElementById(sheetName === 'loans' ? 'loanTableBody' : 'expenseTableBody');
-      const colSpan = sheetName === 'loans' ? "9" : "5";
-      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-center text-gray-400">Loading ${sheetName}...</td></tr>`;
+    async function fetchFinanceData() {
+      const loanTbody = document.getElementById('loanTableBody');
+      const expTbody = document.getElementById('expenseTableBody');
+      
+      loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
+      expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
 
       try {
-        const response = await fetch(`${SCRIPT_URL}?sheet=${sheetName}`);
-        const result = await response.json();
+        const [loansRes, paymentsRes, expensesRes] = await Promise.all([
+          fetch(`${SCRIPT_URL}?sheet=loans`).then(r => r.json()),
+          fetch(`${SCRIPT_URL}?sheet=payments`).then(r => r.json()),
+          fetch(`${SCRIPT_URL}?sheet=expenses`).then(r => r.json())
+        ]);
 
-        if (result.status === "success") {
-          if(sheetName === 'loans') currentLoans = result.data;
-          if(sheetName === 'expenses') currentExpenses = result.data;
-          renderTable(result.data, sheetName, tbody);
-          updateDashboard();
-        }
+        const rawLoans = loansRes.data || [];
+        currentPayments = paymentsRes.data || [];
+        currentExpenses = expensesRes.data || [];
+
+        // Hydrate loans with dynamic ledger computations
+        currentLoans = rawLoans.map(loan => {
+          const ledger = currentPayments.filter(p => p.loan_id === loan.loan_id);
+          
+          const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
+          const balance = Number(loan.amount) - totalPaid;
+          const progress = Number(loan.amount) > 0 ? (totalPaid / Number(loan.amount)) * 100 : 0;
+          
+          const isFullyPaid = balance <= 0;
+          const hasOverdue = ledger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
+          
+          let computedStatus = 'Active';
+          if (isFullyPaid) computedStatus = 'Fully Paid';
+          else if (hasOverdue) computedStatus = 'Overdue';
+
+          return {
+            ...loan,
+            total_paid: totalPaid,
+            balance: balance,
+            progress: progress,
+            computed_status: computedStatus,
+            ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) // Ensure chronological order
+          };
+        });
+
+        renderTable(currentLoans, 'loans', loanTbody);
+        renderTable(currentExpenses, 'expenses', expTbody);
+        updateDashboard();
+
       } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
+        loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
+        expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
       }
     }
 
@@ -205,37 +261,27 @@
       const fYear = document.getElementById('filterYear').value;
       const fMonth = document.getElementById('filterMonth').value;
 
-      // 1. Filter Loans by date_approved
       const filteredLoans = currentLoans.filter(l => {
         if (!l.date_approved) return false;
         const d = new Date(l.date_approved);
         const lYear = d.getFullYear().toString();
         const lMonth = allMonthNames[d.getMonth()];
-        
         const matchYear = fYear === 'All' || lYear === fYear;
         const matchMonth = fMonth === 'All' || lMonth === fMonth;
         return matchYear && matchMonth;
       });
 
-      // 2. Filter Expenses by exact year/month columns
       const filteredExpenses = currentExpenses.filter(e => {
         const eYear = e.year ? e.year.toString() : "";
         const eMonth = e.month ? e.month.toString() : "";
-        
         const matchYear = fYear === 'All' || eYear === fYear;
         const matchMonth = fMonth === 'All' || eMonth === fMonth;
         return matchYear && matchMonth;
       });
 
-      // 3. Calculate Cards based on filtered data
-      const activeLoans = filteredLoans.filter(l => l.status === 'Active');
+      const activeLoans = filteredLoans.filter(l => l.computed_status !== 'Fully Paid');
       
-      const totalOutstandingBalance = activeLoans.reduce((sum, l) => {
-        const amount = Number(l.amount || 0);
-        const paid = Number(l.total_paid || 0);
-        return sum + (amount - paid);
-      }, 0);
-      
+      const totalOutstandingBalance = activeLoans.reduce((sum, l) => sum + l.balance, 0);
       const totalMonthlyAmortization = activeLoans.reduce((sum, l) => sum + Number(l.monthly_amortization || 0), 0);
       const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
@@ -243,10 +289,9 @@
       document.getElementById('dashTotalMonthly').textContent = formatMoney(totalMonthlyAmortization);
       document.getElementById('dashTotalExpenses').textContent = formatMoney(totalExpenses);
 
-      // 4. Update Loan Doughnut Chart
       const loanTypes = {};
       activeLoans.forEach(l => {
-        loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + (Number(l.amount || 0) - Number(l.total_paid || 0));
+        loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + l.balance;
       });
 
       if (loanChartObj) loanChartObj.destroy();
@@ -264,10 +309,8 @@
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
       });
 
-      // 5. Update Expense Bar Chart
       const monthTotals = {};
       allMonthNames.forEach(m => monthTotals[m] = 0);
-      
       filteredExpenses.forEach(e => {
         if(monthTotals[e.month] !== undefined) {
           monthTotals[e.month] += Number(e.amount || 0);
@@ -279,7 +322,7 @@
       expenseChartObj = new Chart(ctxExpense, {
         type: 'bar',
         data: {
-          labels: fMonth === 'All' ? allMonthNames : [fMonth], // If specific month chosen, only show that bar
+          labels: fMonth === 'All' ? allMonthNames : [fMonth],
           datasets: [{
             label: 'Expenses (₱)',
             data: fMonth === 'All' ? Object.values(monthTotals) : [monthTotals[fMonth]],
@@ -298,33 +341,43 @@
 
     function renderTable(data, sheetName, tbody) {
       tbody.innerHTML = "";
-      const colSpan = sheetName === 'loans' ? "9" : "5";
+      const colSpan = sheetName === 'loans' ? "8" : "5";
       if (!data || data.length === 0) return tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-center text-gray-400">No records found.</td></tr>`;
       
       data.forEach(row => {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-gray-50 transition border-b border-gray-50";
-        const actionsHTML = `<div class="flex justify-center space-x-2"><button onclick="editRecord('${sheetName}', ${row._rowIndex})" class="text-blue-500 hover:text-blue-700 text-xs font-semibold px-2">Edit</button><button onclick="deleteRecord('${sheetName}', ${row._rowIndex})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2">Delete</button></div>`;
         
         if (sheetName === 'loans') {
-          let statusColor = row.status === 'Active' ? 'bg-green-100 text-green-700' : row.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700';
-          
-          let amount = Number(row.amount || 0);
-          let paid = Number(row.total_paid || 0);
-          let balance = amount - paid;
+          let statusColors = {
+            'Active': 'bg-blue-100 text-blue-700',
+            'Fully Paid': 'bg-green-100 text-green-700',
+            'Overdue': 'bg-red-100 text-red-700'
+          };
+          let badgeClass = statusColors[row.computed_status] || 'bg-gray-100 text-gray-700';
 
           tr.innerHTML = `
             <td class="p-3 font-medium text-gray-800">${row.loan_type}</td>
-            <td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColor}">${row.status}</span></td>
-            <td class="p-3">${formatMoney(amount)}</td>
-            <td class="p-3 text-blue-600">${formatMoney(paid)}</td>
-            <td class="p-3 font-bold text-red-500">${formatMoney(balance)}</td>
+            <td class="p-3"><span class="px-2 py-1 rounded-md text-xs font-bold ${badgeClass}">${row.computed_status}</span></td>
+            <td class="p-3">${formatMoney(row.amount)}</td>
+            <td class="p-3">
+              <div class="flex flex-col gap-1 w-full max-w-[120px]">
+                <span class="text-xs font-semibold text-gray-600">${formatMoney(row.balance)}</span>
+                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                  <div class="bg-green-500 h-1.5 rounded-full" style="width: ${row.progress}%"></div>
+                </div>
+              </div>
+            </td>
             <td class="p-3">${row.term} mos</td>
             <td class="p-3 text-gray-500">${new Date(row.date_approved).toLocaleDateString()}</td>
             <td class="p-3">${formatMoney(row.monthly_amortization)}</td>
-            <td class="p-3 align-middle">${actionsHTML}</td>
+            <td class="p-3 align-middle text-center">
+              <button onclick="openLedgerModal('${row.loan_id}')" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800 px-3 py-1 rounded shadow-sm text-xs font-bold transition mr-2">View Ledger</button>
+              <button onclick="deleteRecord('${sheetName}', ${row._rowIndex})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2">Delete</button>
+            </td>
           `;
         } else {
+          const actionsHTML = `<div class="flex justify-center space-x-2"><button onclick="editRecord('${sheetName}', ${row._rowIndex})" class="text-blue-500 hover:text-blue-700 text-xs font-semibold px-2">Edit</button><button onclick="deleteRecord('${sheetName}', ${row._rowIndex})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2">Delete</button></div>`;
           tr.innerHTML = `
             <td class="p-3 text-gray-500">${row.year}</td>
             <td class="p-3 font-medium text-gray-800">${row.month}</td>
@@ -337,18 +390,63 @@
       });
     }
 
+    // Ledger Modal Functions
+    function openLedgerModal(loanId) {
+      const loan = currentLoans.find(l => l.loan_id === loanId);
+      if (!loan) return;
+
+      document.getElementById('modalLoanTitle').textContent = `${loan.loan_type} Amortization Schedule`;
+      const tbody = document.getElementById('ledgerTableBody');
+      tbody.innerHTML = '';
+
+      loan.ledger.forEach(payment => {
+        const isPaid = payment.status === 'Paid';
+        const isOverdue = payment.status === 'Pending' && new Date(payment.due_date) < new Date();
+        
+        let statusBadge = isPaid 
+          ? `<span class="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold">Paid</span>` 
+          : isOverdue 
+            ? `<span class="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold">Overdue</span>`
+            : `<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold">Pending</span>`;
+
+        let actionBtn = isPaid 
+          ? `<span class="text-xs text-gray-400 font-medium">Cleared</span>`
+          : `<button onclick="markPaymentPaid('${payment.payment_id}')" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-xs font-bold transition">Pay Now</button>`;
+
+        const tr = document.createElement('tr');
+        tr.className = `hover:bg-gray-50 transition border-b border-gray-50 ${isPaid ? 'bg-green-50/30' : ''}`;
+        tr.innerHTML = `
+          <td class="p-3 text-gray-600 font-medium">${payment.installment_num}</td>
+          <td class="p-3">${new Date(payment.due_date).toLocaleDateString()}</td>
+          <td class="p-3 font-semibold">${formatMoney(payment.amount_due)}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 text-gray-500">${payment.date_paid ? new Date(payment.date_paid).toLocaleDateString() : '-'}</td>
+          <td class="p-3 text-center align-middle">${actionBtn}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('ledgerModal').classList.remove('hidden');
+    }
+
+    function closeLedgerModal() {
+      document.getElementById('ledgerModal').classList.add('hidden');
+    }
+
+    async function markPaymentPaid(paymentId) {
+      if (!confirm("Mark this month as paid?")) return;
+      try {
+        const payload = { action: 'mark_paid', payment_id: paymentId };
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        if ((await res.json()).status === "success") {
+          closeLedgerModal(); // Close modal to refresh data
+          fetchFinanceData(); // Refetch everything to update balances and statuses
+        }
+      } catch (e) { alert('Error processing payment.'); }
+    }
+
     function editRecord(s, r) {
-      if (s === 'loans') {
-        const rec = currentLoans.find(x => x._rowIndex === r);
-        document.getElementById('loan_row_index').value = r;
-        ['loan_type','status','amount','term','monthly_amortization', 'total_paid'].forEach(k => {
-          document.getElementById(k).value = rec[k] !== undefined ? rec[k] : 0;
-        });
-        document.getElementById('date_approved').value = formatDateForInput(rec.date_approved);
-        document.getElementById('loanFormTitle').textContent = "Edit Loan Record";
-        document.getElementById('loanSubmitBtn').textContent = "Update Loan";
-        document.getElementById('loanCancelBtn').classList.remove('hidden');
-      } else {
+      if (s === 'expenses') {
         const rec = currentExpenses.find(x => x._rowIndex === r);
         document.getElementById('expense_row_index').value = r;
         ['year','month','expense_type'].forEach(k => document.getElementById(k).value = rec[k]);
@@ -356,42 +454,52 @@
         document.getElementById('expenseFormTitle').textContent = "Edit Expense";
         document.getElementById('expenseSubmitBtn').textContent = "Update Expense";
         document.getElementById('expenseCancelBtn').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function cancelEdit(t) {
       document.getElementById(`${t}Form`).reset();
       document.getElementById(`${t}_row_index`).value = "";
       document.getElementById(`${t}FormTitle`).textContent = `Add New ${t.charAt(0).toUpperCase() + t.slice(1)}`;
-      document.getElementById(`${t}SubmitBtn`).textContent = `Save ${t.charAt(0).toUpperCase() + t.slice(1)}`;
+      
+      if(t === 'expense') {
+        document.getElementById('expenseSubmitBtn').textContent = `Save Expense`;
+        document.getElementById('year').value = "2026";
+      } else {
+        document.getElementById('loanSubmitBtn').textContent = `Save Loan & Generate Ledger`;
+      }
       document.getElementById(`${t}CancelBtn`).classList.add('hidden');
-      if(t === 'expense') document.getElementById('year').value = "2026";
-      if(t === 'loan') document.getElementById('total_paid').value = "0";
     }
 
     async function deleteRecord(s, r) {
       if (!confirm("Delete this record?")) return;
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', sheetName: s, rowIndex: r }) });
-        if ((await res.json()).status === "success") fetchData(s);
+        if ((await res.json()).status === "success") fetchFinanceData(); // Always refresh everything
       } catch (e) { alert('Error deleting record.'); }
     }
 
     async function submitLoan(e) {
       e.preventDefault();
-      const r = document.getElementById('loan_row_index').value;
-      const isEdit = r !== "";
+      
       const payload = { 
-        action: isEdit ? 'edit' : 'add', 
-        sheetName: "loans", 
-        rowIndex: isEdit ? parseInt(r) : null, 
-        values: ['loan_type','status','amount','term','date_approved','monthly_amortization', 'total_paid'].map(id => document.getElementById(id).value) 
+        action: 'add_loan', // Matches the new Apps Script architecture
+        data: {
+          loan_type: document.getElementById('loan_type').value,
+          amount: document.getElementById('amount').value,
+          term: document.getElementById('term').value,
+          date_approved: document.getElementById('date_approved').value,
+          monthly_amortization: document.getElementById('monthly_amortization').value
+        }
       };
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        if ((await res.json()).status === "success") { cancelEdit('loan'); fetchData('loans'); }
-      } catch (err) { alert('Error saving.'); }
+        if ((await res.json()).status === "success") { 
+          cancelEdit('loan'); 
+          fetchFinanceData(); 
+        }
+      } catch (err) { alert('Error saving loan.'); }
     }
 
     async function submitExpense(e) {
@@ -406,11 +514,14 @@
       };
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        if ((await res.json()).status === "success") { cancelEdit('expense'); fetchData('expenses'); }
-      } catch (err) { alert('Error saving.'); }
+        if ((await res.json()).status === "success") { 
+          cancelEdit('expense'); 
+          fetchFinanceData(); // Ensure UI completely syncs
+        }
+      } catch (err) { alert('Error saving expense.'); }
     }
 
-    window.onload = () => { fetchData('loans'); fetchData('expenses'); };
+    window.onload = () => { fetchFinanceData(); };
   </script>
 </body>
 </html>
