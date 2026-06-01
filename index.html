@@ -205,137 +205,138 @@
     const formatDateForInput = (isoDate) => isoDate ? new Date(isoDate).toISOString().split('T')[0] : '';
 
     async function fetchFinanceData() {
-      const loanTbody = document.getElementById('loanTableBody');
-      const expTbody = document.getElementById('expenseTableBody');
+  const loanTbody = document.getElementById('loanTableBody');
+  const expTbody = document.getElementById('expenseTableBody');
+  
+  loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
+  expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
+
+  try {
+    const [loansRes, paymentsRes, expensesRes] = await Promise.all([
+      fetch(`${SCRIPT_URL}?sheet=loans`).then(r => r.json()),
+      fetch(`${SCRIPT_URL}?sheet=payments`).then(r => r.json()),
+      fetch(`${SCRIPT_URL}?sheet=expenses`).then(r => r.json())
+    ]);
+
+    const rawLoans = loansRes.data || [];
+    currentPayments = paymentsRes.data || [];
+    currentExpenses = expensesRes.data || [];
+
+    currentLoans = rawLoans.map(loan => {
+      // FIX 3: Cast to strings to guarantee matching
+      const ledger = currentPayments.filter(p => String(p.loan_id) === String(loan.loan_id));
       
-      loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
-      expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
+      const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
+      
+      // FIX 2: Calculate balance based on unpaid ledger items, fallback to full amount if ledger is empty
+      const balance = ledger.length > 0 
+        ? ledger.reduce((sum, p) => p.status !== 'Paid' ? sum + Number(p.amount_due) : sum, 0)
+        : Number(loan.amount);
 
-      try {
-        const [loansRes, paymentsRes, expensesRes] = await Promise.all([
-          fetch(`${SCRIPT_URL}?sheet=loans`).then(r => r.json()),
-          fetch(`${SCRIPT_URL}?sheet=payments`).then(r => r.json()),
-          fetch(`${SCRIPT_URL}?sheet=expenses`).then(r => r.json())
-        ]);
+      // Determine progress based on the total contract price
+      const totalContractPrice = totalPaid + balance;
+      const progress = totalContractPrice > 0 ? (totalPaid / totalContractPrice) * 100 : 0;
+      
+      const isFullyPaid = balance <= 0;
+      const hasOverdue = ledger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
+      
+      let computedStatus = 'Active';
+      if (isFullyPaid) computedStatus = 'Fully Paid';
+      else if (hasOverdue) computedStatus = 'Overdue';
 
-        const rawLoans = loansRes.data || [];
-        currentPayments = paymentsRes.data || [];
-        currentExpenses = expensesRes.data || [];
+      return {
+        ...loan,
+        total_paid: totalPaid,
+        balance: balance,
+        progress: progress,
+        computed_status: computedStatus,
+        ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) 
+      };
+    });
 
-        currentLoans = rawLoans.map(loan => {
-          const ledger = currentPayments.filter(p => p.loan_id === loan.loan_id);
-          const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
-          const balance = Number(loan.amount) - totalPaid;
-          const progress = Number(loan.amount) > 0 ? (totalPaid / Number(loan.amount)) * 100 : 0;
-          
-          const isFullyPaid = balance <= 0;
-          const hasOverdue = ledger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
-          
-          let computedStatus = 'Active';
-          if (isFullyPaid) computedStatus = 'Fully Paid';
-          else if (hasOverdue) computedStatus = 'Overdue';
+    renderTable(currentLoans, 'loans', loanTbody);
+    renderTable(currentExpenses, 'expenses', expTbody);
+    updateDashboard();
 
-          return {
-            ...loan,
-            total_paid: totalPaid,
-            balance: balance,
-            progress: progress,
-            computed_status: computedStatus,
-            ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) 
-          };
-        });
-
-        renderTable(currentLoans, 'loans', loanTbody);
-        renderTable(currentExpenses, 'expenses', expTbody);
-        updateDashboard();
-
-      } catch (error) {
-        loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
-        expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
-      }
-    }
+  } catch (error) {
+    loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
+    expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
+  }
+}
 
     function updateDashboard() {
-      const fYear = document.getElementById('filterYear').value;
-      const fMonth = document.getElementById('filterMonth').value;
+  const fYear = document.getElementById('filterYear').value;
+  const fMonth = document.getElementById('filterMonth').value;
 
-      const filteredLoans = currentLoans.filter(l => {
-        if (!l.date_approved) return false;
-        const d = new Date(l.date_approved);
-        const lYear = d.getFullYear().toString();
-        const lMonth = allMonthNames[d.getMonth()];
-        const matchYear = fYear === 'All' || lYear === fYear;
-        const matchMonth = fMonth === 'All' || lMonth === fMonth;
-        return matchYear && matchMonth;
-      });
+  // Expenses remain filterable by the dropdowns
+  const filteredExpenses = currentExpenses.filter(e => {
+    const eYear = e.year ? e.year.toString() : "";
+    const eMonth = e.month ? e.month.toString() : "";
+    const matchYear = fYear === 'All' || eYear === fYear;
+    const matchMonth = fMonth === 'All' || eMonth === fMonth;
+    return matchYear && matchMonth;
+  });
 
-      const filteredExpenses = currentExpenses.filter(e => {
-        const eYear = e.year ? e.year.toString() : "";
-        const eMonth = e.month ? e.month.toString() : "";
-        const matchYear = fYear === 'All' || eYear === fYear;
-        const matchMonth = fMonth === 'All' || eMonth === fMonth;
-        return matchYear && matchMonth;
-      });
+  // FIX 1: Active loans now look at the entire 'currentLoans' array, ignoring the Year/Month dropdown
+  const activeLoans = currentLoans.filter(l => l.computed_status !== 'Fully Paid');
+  
+  const totalOutstandingBalance = activeLoans.reduce((sum, l) => sum + l.balance, 0);
+  const totalMonthlyAmortization = activeLoans.reduce((sum, l) => sum + Number(l.monthly_amortization || 0), 0);
+  const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-      const activeLoans = filteredLoans.filter(l => l.computed_status !== 'Fully Paid');
-      
-      const totalOutstandingBalance = activeLoans.reduce((sum, l) => sum + l.balance, 0);
-      const totalMonthlyAmortization = activeLoans.reduce((sum, l) => sum + Number(l.monthly_amortization || 0), 0);
-      const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  document.getElementById('dashTotalLoans').textContent = formatMoney(totalOutstandingBalance);
+  document.getElementById('dashTotalMonthly').textContent = formatMoney(totalMonthlyAmortization);
+  document.getElementById('dashTotalExpenses').textContent = formatMoney(totalExpenses);
 
-      document.getElementById('dashTotalLoans').textContent = formatMoney(totalOutstandingBalance);
-      document.getElementById('dashTotalMonthly').textContent = formatMoney(totalMonthlyAmortization);
-      document.getElementById('dashTotalExpenses').textContent = formatMoney(totalExpenses);
+  const loanTypes = {};
+  activeLoans.forEach(l => {
+    loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + l.balance;
+  });
 
-      const loanTypes = {};
-      activeLoans.forEach(l => {
-        loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + l.balance;
-      });
+  if (loanChartObj) loanChartObj.destroy();
+  const ctxLoan = document.getElementById('loanChart').getContext('2d');
+  loanChartObj = new Chart(ctxLoan, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(loanTypes).length ? Object.keys(loanTypes) : ['No Data'],
+      datasets: [{
+        data: Object.values(loanTypes).length ? Object.values(loanTypes) : [1],
+        backgroundColor: Object.keys(loanTypes).length ? ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'] : ['#e5e7eb'],
+        borderWidth: 0
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+  });
 
-      if (loanChartObj) loanChartObj.destroy();
-      const ctxLoan = document.getElementById('loanChart').getContext('2d');
-      loanChartObj = new Chart(ctxLoan, {
-        type: 'doughnut',
-        data: {
-          labels: Object.keys(loanTypes).length ? Object.keys(loanTypes) : ['No Data'],
-          datasets: [{
-            data: Object.values(loanTypes).length ? Object.values(loanTypes) : [1],
-            backgroundColor: Object.keys(loanTypes).length ? ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'] : ['#e5e7eb'],
-            borderWidth: 0
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-      });
-
-      const monthTotals = {};
-      allMonthNames.forEach(m => monthTotals[m] = 0);
-      filteredExpenses.forEach(e => {
-        if(monthTotals[e.month] !== undefined) {
-          monthTotals[e.month] += Number(e.amount || 0);
-        }
-      });
-
-      if (expenseChartObj) expenseChartObj.destroy();
-      const ctxExpense = document.getElementById('expenseChart').getContext('2d');
-      expenseChartObj = new Chart(ctxExpense, {
-        type: 'bar',
-        data: {
-          labels: fMonth === 'All' ? allMonthNames : [fMonth],
-          datasets: [{
-            label: 'Expenses (₱)',
-            data: fMonth === 'All' ? Object.values(monthTotals) : [monthTotals[fMonth]],
-            backgroundColor: '#10b981',
-            borderRadius: 4
-          }]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true } }
-        }
-      });
+  const monthTotals = {};
+  allMonthNames.forEach(m => monthTotals[m] = 0);
+  filteredExpenses.forEach(e => {
+    if(monthTotals[e.month] !== undefined) {
+      monthTotals[e.month] += Number(e.amount || 0);
     }
+  });
+
+  if (expenseChartObj) expenseChartObj.destroy();
+  const ctxExpense = document.getElementById('expenseChart').getContext('2d');
+  expenseChartObj = new Chart(ctxExpense, {
+    type: 'bar',
+    data: {
+      labels: fMonth === 'All' ? allMonthNames : [fMonth],
+      datasets: [{
+        label: 'Expenses (₱)',
+        data: fMonth === 'All' ? Object.values(monthTotals) : [monthTotals[fMonth]],
+        backgroundColor: '#10b981',
+        borderRadius: 4
+      }]
+    },
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
 
     function renderTable(data, sheetName, tbody) {
       tbody.innerHTML = "";
