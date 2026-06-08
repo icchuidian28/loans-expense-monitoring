@@ -223,18 +223,57 @@
         currentExpenses = expensesRes.data || [];
 
         currentLoans = rawLoans.map(loan => {
-          const ledger = currentPayments.filter(p => String(p.loan_id) === String(loan.loan_id));
-          const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
+          // Grab original ledger from backend
+          const rawLedger = currentPayments.filter(p => String(p.loan_id) === String(loan.loan_id));
+          const sortedLedger = rawLedger.sort((a, b) => a.installment_num - b.installment_num);
           
-          const balance = ledger.length > 0 
-            ? ledger.reduce((sum, p) => p.status !== 'Paid' ? sum + Number(p.amount_due) : sum, 0)
-            : Number(loan.amount);
+          const expectedTerm = Number(loan.term) || 0;
+          const monthly = Number(loan.monthly_amortization) || 0;
+          
+          // --- MATH FIX ---
+          // Determine theoretical Total Contract Price based on the current inputs. 
+          // If the user changed 'term', the balance will adapt automatically!
+          const totalContractPrice = (expectedTerm * monthly) > 0 ? (expectedTerm * monthly) : Number(loan.amount);
 
-          const totalContractPrice = totalPaid + balance;
+          // --- LEDGER OVERRIDE FIX ---
+          // Instead of letting extra ghost rows distort the calculation, explicitly force the ledger to map 1:1 to the 'term'.
+          let processedLedger = [];
+          if (expectedTerm > 0) {
+            for (let i = 1; i <= expectedTerm; i++) {
+              const existing = sortedLedger.find(p => Number(p.installment_num) === i);
+              if (existing) {
+                // Takes the real database row, but overwrites visual amount in case monthly_amortization was changed.
+                processedLedger.push({
+                  ...existing,
+                  amount_due: monthly > 0 ? monthly : existing.amount_due 
+                });
+              } else {
+                // Handles case where term is INCREASED but rows are missing in Google Sheet.
+                let nextDate = new Date(loan.date_approved);
+                nextDate.setMonth(nextDate.getMonth() + i);
+                processedLedger.push({
+                  payment_id: 'VIRTUAL',
+                  installment_num: i,
+                  due_date: nextDate.toISOString(),
+                  amount_due: monthly > 0 ? monthly : 0,
+                  status: 'Pending',
+                  date_paid: null
+                });
+              }
+            }
+          } else {
+            // Fallback if term is broken
+            processedLedger = sortedLedger;
+          }
+
+          // Compute Paid amount ONLY off the newly corrected ledger.
+          const totalPaid = processedLedger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
+          
+          const balance = totalContractPrice - totalPaid;
           const progress = totalContractPrice > 0 ? (totalPaid / totalContractPrice) * 100 : 0;
           
           const isFullyPaid = balance <= 0;
-          const hasOverdue = ledger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
+          const hasOverdue = processedLedger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
           
           let computedStatus = 'Active';
           if (isFullyPaid) computedStatus = 'Fully Paid';
@@ -243,10 +282,10 @@
           return {
             ...loan,
             total_paid: totalPaid,
-            balance: balance,
-            progress: progress,
+            balance: balance > 0 ? balance : 0,
+            progress: progress > 100 ? 100 : progress,
             computed_status: computedStatus,
-            ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) 
+            ledger: processedLedger
           };
         });
 
@@ -404,9 +443,15 @@
             ? `<span class="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold">Overdue</span>`
             : `<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold">Pending</span>`;
 
-        let actionBtn = isPaid 
-          ? `<button onclick="unmarkPaymentPaid('${payment.payment_id}')" class="text-red-500 hover:text-red-700 underline text-xs font-bold transition">Undo Payment</button>`
-          : `<button onclick="markPaymentPaid('${payment.payment_id}')" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-xs font-bold transition">Pay Now</button>`;
+        let actionBtn = '';
+        if (payment.payment_id === 'VIRTUAL') {
+          // If the visual rows exceed the database rows, block clicking.
+          actionBtn = `<span class="text-xs text-gray-400 italic">Auto-sync missing</span>`;
+        } else if (isPaid) {
+          actionBtn = `<button onclick="unmarkPaymentPaid('${payment.payment_id}')" class="text-red-500 hover:text-red-700 underline text-xs font-bold transition">Undo</button>`;
+        } else {
+          actionBtn = `<button onclick="markPaymentPaid('${payment.payment_id}')" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-xs font-bold transition">Pay Now</button>`;
+        }
 
         const tr = document.createElement('tr');
         tr.className = `hover:bg-gray-50 transition border-b border-gray-50 ${isPaid ? 'bg-green-50/30' : ''}`;
@@ -465,7 +510,7 @@
       } else if (s === 'loans') {
         const rec = currentLoans.find(x => x._rowIndex === r);
         document.getElementById('loan_row_index').value = r;
-        document.getElementById('edit_loan_id').value = rec.loan_id; // Capture ID for the array submission
+        document.getElementById('edit_loan_id').value = rec.loan_id; 
         document.getElementById('loan_type').value = rec.loan_type;
         document.getElementById('amount').value = rec.amount;
         document.getElementById('term').value = rec.term;
@@ -486,7 +531,7 @@
         document.getElementById('expenseSubmitBtn').textContent = `Save Expense`;
         document.getElementById('year').value = "2026";
       } else {
-        document.getElementById('edit_loan_id').value = ""; // Clear hidden ID
+        document.getElementById('edit_loan_id').value = ""; 
         document.getElementById('loanSubmitBtn').textContent = `Save Loan & Generate Ledger`;
       }
       
@@ -520,12 +565,12 @@
         sheetName: 'loans',
         rowIndex: parseInt(r),
         values: [
-          document.getElementById('edit_loan_id').value, // Correctly puts the ID back into Column A
-          loanData.loan_type,                            // Column B
-          loanData.amount,                               // Column C
-          loanData.term,                                 // Column D
-          loanData.date_approved,                        // Column E
-          loanData.monthly_amortization                  // Column F
+          document.getElementById('edit_loan_id').value, 
+          loanData.loan_type,                            
+          loanData.amount,                               
+          loanData.term,                                 
+          loanData.date_approved,                        
+          loanData.monthly_amortization                  
         ]
       } : {
         action: 'add_loan', 
