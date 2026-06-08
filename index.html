@@ -205,138 +205,132 @@
     const formatDateForInput = (isoDate) => isoDate ? new Date(isoDate).toISOString().split('T')[0] : '';
 
     async function fetchFinanceData() {
-  const loanTbody = document.getElementById('loanTableBody');
-  const expTbody = document.getElementById('expenseTableBody');
-  
-  loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
-  expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
-
-  try {
-    const [loansRes, paymentsRes, expensesRes] = await Promise.all([
-      fetch(`${SCRIPT_URL}?sheet=loans`).then(r => r.json()),
-      fetch(`${SCRIPT_URL}?sheet=payments`).then(r => r.json()),
-      fetch(`${SCRIPT_URL}?sheet=expenses`).then(r => r.json())
-    ]);
-
-    const rawLoans = loansRes.data || [];
-    currentPayments = paymentsRes.data || [];
-    currentExpenses = expensesRes.data || [];
-
-    currentLoans = rawLoans.map(loan => {
-      // FIX 3: Cast to strings to guarantee matching
-      const ledger = currentPayments.filter(p => String(p.loan_id) === String(loan.loan_id));
+      const loanTbody = document.getElementById('loanTableBody');
+      const expTbody = document.getElementById('expenseTableBody');
       
-      const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
-      
-      // FIX 2: Calculate balance based on unpaid ledger items, fallback to full amount if ledger is empty
-      const balance = ledger.length > 0 
-        ? ledger.reduce((sum, p) => p.status !== 'Paid' ? sum + Number(p.amount_due) : sum, 0)
-        : Number(loan.amount);
+      loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
+      expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Loading data...</td></tr>`;
 
-      // Determine progress based on the total contract price
-      const totalContractPrice = totalPaid + balance;
-      const progress = totalContractPrice > 0 ? (totalPaid / totalContractPrice) * 100 : 0;
-      
-      const isFullyPaid = balance <= 0;
-      const hasOverdue = ledger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
-      
-      let computedStatus = 'Active';
-      if (isFullyPaid) computedStatus = 'Fully Paid';
-      else if (hasOverdue) computedStatus = 'Overdue';
+      try {
+        const [loansRes, paymentsRes, expensesRes] = await Promise.all([
+          fetch(`${SCRIPT_URL}?sheet=loans`).then(r => r.json()),
+          fetch(`${SCRIPT_URL}?sheet=payments`).then(r => r.json()),
+          fetch(`${SCRIPT_URL}?sheet=expenses`).then(r => r.json())
+        ]);
 
-      return {
-        ...loan,
-        total_paid: totalPaid,
-        balance: balance,
-        progress: progress,
-        computed_status: computedStatus,
-        ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) 
-      };
-    });
+        const rawLoans = loansRes.data || [];
+        currentPayments = paymentsRes.data || [];
+        currentExpenses = expensesRes.data || [];
 
-    renderTable(currentLoans, 'loans', loanTbody);
-    renderTable(currentExpenses, 'expenses', expTbody);
-    updateDashboard();
+        currentLoans = rawLoans.map(loan => {
+          const ledger = currentPayments.filter(p => String(p.loan_id) === String(loan.loan_id));
+          const totalPaid = ledger.reduce((sum, p) => p.status === 'Paid' ? sum + Number(p.amount_due) : sum, 0);
+          
+          const balance = ledger.length > 0 
+            ? ledger.reduce((sum, p) => p.status !== 'Paid' ? sum + Number(p.amount_due) : sum, 0)
+            : Number(loan.amount);
 
-  } catch (error) {
-    loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
-    expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
-  }
-}
+          const totalContractPrice = totalPaid + balance;
+          const progress = totalContractPrice > 0 ? (totalPaid / totalContractPrice) * 100 : 0;
+          
+          const isFullyPaid = balance <= 0;
+          const hasOverdue = ledger.some(p => p.status === 'Pending' && new Date(p.due_date) < new Date());
+          
+          let computedStatus = 'Active';
+          if (isFullyPaid) computedStatus = 'Fully Paid';
+          else if (hasOverdue) computedStatus = 'Overdue';
+
+          return {
+            ...loan,
+            total_paid: totalPaid,
+            balance: balance,
+            progress: progress,
+            computed_status: computedStatus,
+            ledger: ledger.sort((a,b) => a.installment_num - b.installment_num) 
+          };
+        });
+
+        renderTable(currentLoans, 'loans', loanTbody);
+        renderTable(currentExpenses, 'expenses', expTbody);
+        updateDashboard();
+
+      } catch (error) {
+        loanTbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
+        expTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Failed to connect to server.</td></tr>`;
+      }
+    }
 
     function updateDashboard() {
-  const fYear = document.getElementById('filterYear').value;
-  const fMonth = document.getElementById('filterMonth').value;
+      const fYear = document.getElementById('filterYear').value;
+      const fMonth = document.getElementById('filterMonth').value;
 
-  // Expenses remain filterable by the dropdowns
-  const filteredExpenses = currentExpenses.filter(e => {
-    const eYear = e.year ? e.year.toString() : "";
-    const eMonth = e.month ? e.month.toString() : "";
-    const matchYear = fYear === 'All' || eYear === fYear;
-    const matchMonth = fMonth === 'All' || eMonth === fMonth;
-    return matchYear && matchMonth;
-  });
+      const filteredExpenses = currentExpenses.filter(e => {
+        const eYear = e.year ? e.year.toString() : "";
+        const eMonth = e.month ? e.month.toString() : "";
+        const matchYear = fYear === 'All' || eYear === fYear;
+        const matchMonth = fMonth === 'All' || eMonth === fMonth;
+        return matchYear && matchMonth;
+      });
 
-  // FIX 1: Active loans now look at the entire 'currentLoans' array, ignoring the Year/Month dropdown
-  const activeLoans = currentLoans.filter(l => l.computed_status !== 'Fully Paid');
-  
-  const totalOutstandingBalance = activeLoans.reduce((sum, l) => sum + l.balance, 0);
-  const totalMonthlyAmortization = activeLoans.reduce((sum, l) => sum + Number(l.monthly_amortization || 0), 0);
-  const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const activeLoans = currentLoans.filter(l => l.computed_status !== 'Fully Paid');
+      
+      const totalOutstandingBalance = activeLoans.reduce((sum, l) => sum + l.balance, 0);
+      const totalMonthlyAmortization = activeLoans.reduce((sum, l) => sum + Number(l.monthly_amortization || 0), 0);
+      const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-  document.getElementById('dashTotalLoans').textContent = formatMoney(totalOutstandingBalance);
-  document.getElementById('dashTotalMonthly').textContent = formatMoney(totalMonthlyAmortization);
-  document.getElementById('dashTotalExpenses').textContent = formatMoney(totalExpenses);
+      document.getElementById('dashTotalLoans').textContent = formatMoney(totalOutstandingBalance);
+      document.getElementById('dashTotalMonthly').textContent = formatMoney(totalMonthlyAmortization);
+      document.getElementById('dashTotalExpenses').textContent = formatMoney(totalExpenses);
 
-  const loanTypes = {};
-  activeLoans.forEach(l => {
-    loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + l.balance;
-  });
+      const loanTypes = {};
+      activeLoans.forEach(l => {
+        loanTypes[l.loan_type] = (loanTypes[l.loan_type] || 0) + l.balance;
+      });
 
-  if (loanChartObj) loanChartObj.destroy();
-  const ctxLoan = document.getElementById('loanChart').getContext('2d');
-  loanChartObj = new Chart(ctxLoan, {
-    type: 'doughnut',
-    data: {
-      labels: Object.keys(loanTypes).length ? Object.keys(loanTypes) : ['No Data'],
-      datasets: [{
-        data: Object.values(loanTypes).length ? Object.values(loanTypes) : [1],
-        backgroundColor: Object.keys(loanTypes).length ? ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'] : ['#e5e7eb'],
-        borderWidth: 0
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-  });
+      if (loanChartObj) loanChartObj.destroy();
+      const ctxLoan = document.getElementById('loanChart').getContext('2d');
+      loanChartObj = new Chart(ctxLoan, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(loanTypes).length ? Object.keys(loanTypes) : ['No Data'],
+          datasets: [{
+            data: Object.values(loanTypes).length ? Object.values(loanTypes) : [1],
+            backgroundColor: Object.keys(loanTypes).length ? ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'] : ['#e5e7eb'],
+            borderWidth: 0
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+      });
 
-  const monthTotals = {};
-  allMonthNames.forEach(m => monthTotals[m] = 0);
-  filteredExpenses.forEach(e => {
-    if(monthTotals[e.month] !== undefined) {
-      monthTotals[e.month] += Number(e.amount || 0);
+      const monthTotals = {};
+      allMonthNames.forEach(m => monthTotals[m] = 0);
+      filteredExpenses.forEach(e => {
+        if(monthTotals[e.month] !== undefined) {
+          monthTotals[e.month] += Number(e.amount || 0);
+        }
+      });
+
+      if (expenseChartObj) expenseChartObj.destroy();
+      const ctxExpense = document.getElementById('expenseChart').getContext('2d');
+      expenseChartObj = new Chart(ctxExpense, {
+        type: 'bar',
+        data: {
+          labels: fMonth === 'All' ? allMonthNames : [fMonth],
+          datasets: [{
+            label: 'Expenses (₱)',
+            data: fMonth === 'All' ? Object.values(monthTotals) : [monthTotals[fMonth]],
+            backgroundColor: '#10b981',
+            borderRadius: 4
+          }]
+        },
+        options: { 
+          responsive: true, 
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
     }
-  });
-
-  if (expenseChartObj) expenseChartObj.destroy();
-  const ctxExpense = document.getElementById('expenseChart').getContext('2d');
-  expenseChartObj = new Chart(ctxExpense, {
-    type: 'bar',
-    data: {
-      labels: fMonth === 'All' ? allMonthNames : [fMonth],
-      datasets: [{
-        label: 'Expenses (₱)',
-        data: fMonth === 'All' ? Object.values(monthTotals) : [monthTotals[fMonth]],
-        backgroundColor: '#10b981',
-        borderRadius: 4
-      }]
-    },
-    options: { 
-      responsive: true, 
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } }
-    }
-  });
-}
 
     function renderTable(data, sheetName, tbody) {
       tbody.innerHTML = "";
@@ -371,8 +365,11 @@
             <td class="p-3 text-gray-500">${new Date(row.date_approved).toLocaleDateString()}</td>
             <td class="p-3">${formatMoney(row.monthly_amortization)}</td>
             <td class="p-3 align-middle text-center">
-              <button onclick="openLedgerModal('${row.loan_id}')" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800 px-3 py-1 rounded shadow-sm text-xs font-bold transition mr-2">View Ledger</button>
-              <button onclick="deleteRecord('${sheetName}', ${row._rowIndex})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2">Delete</button>
+              <div class="flex justify-center items-center space-x-1">
+                <button onclick="openLedgerModal('${row.loan_id}')" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800 px-2 py-1 rounded shadow-sm text-xs font-bold transition">Ledger</button>
+                <button onclick="editRecord('${sheetName}', ${row._rowIndex})" class="text-blue-500 hover:text-blue-700 text-xs font-semibold px-2">Edit</button>
+                <button onclick="deleteRecord('${sheetName}', ${row._rowIndex})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2">Delete</button>
+              </div>
             </td>
           `;
         } else {
@@ -465,6 +462,18 @@
         document.getElementById('expenseSubmitBtn').textContent = "Update Expense";
         document.getElementById('expenseCancelBtn').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (s === 'loans') {
+        const rec = currentLoans.find(x => x._rowIndex === r);
+        document.getElementById('loan_row_index').value = r;
+        document.getElementById('loan_type').value = rec.loan_type;
+        document.getElementById('amount').value = rec.amount;
+        document.getElementById('term').value = rec.term;
+        document.getElementById('date_approved').value = formatDateForInput(rec.date_approved);
+        document.getElementById('monthly_amortization').value = rec.monthly_amortization;
+        document.getElementById('loanFormTitle').textContent = "Edit Loan";
+        document.getElementById('loanSubmitBtn').textContent = "Update Loan";
+        document.getElementById('loanCancelBtn').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
 
@@ -492,16 +501,35 @@
 
     async function submitLoan(e) {
       e.preventDefault();
-      const payload = { 
-        action: 'add_loan', 
-        data: {
-          loan_type: document.getElementById('loan_type').value,
-          amount: document.getElementById('amount').value,
-          term: document.getElementById('term').value,
-          date_approved: document.getElementById('date_approved').value,
-          monthly_amortization: document.getElementById('monthly_amortization').value
-        }
+      const r = document.getElementById('loan_row_index').value;
+      const isEdit = r !== "";
+      
+      const loanData = {
+        loan_type: document.getElementById('loan_type').value,
+        amount: document.getElementById('amount').value,
+        term: document.getElementById('term').value,
+        date_approved: document.getElementById('date_approved').value,
+        monthly_amortization: document.getElementById('monthly_amortization').value
       };
+
+      const payload = isEdit ? {
+        action: 'edit',
+        sheetName: 'loans',
+        rowIndex: parseInt(r),
+        values: [
+          // Keep this aligned with your specific sheet layout order (e.g., ID, Type, Amount, Term...)
+          // If your script requires a specific object layout for custom edit logic, handle it accordingly.
+          loanData.loan_type, 
+          loanData.amount, 
+          loanData.term, 
+          loanData.date_approved, 
+          loanData.monthly_amortization
+        ]
+      } : {
+        action: 'add_loan', 
+        data: loanData
+      };
+
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         if ((await res.json()).status === "success") { 
