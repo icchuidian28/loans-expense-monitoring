@@ -85,6 +85,7 @@
         <h2 id="loanFormTitle" class="text-xl font-semibold mb-4 text-gray-900">Add New Loan</h2>
         <form id="loanForm" onsubmit="submitLoan(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input type="hidden" id="loan_row_index" value="">
+          <input type="hidden" id="edit_loan_id" value="">
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Type of Loan</label><input type="text" id="loan_type" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Amount</label><input type="number" id="amount" step="0.01" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
           <div><label class="block text-sm font-medium text-gray-600 mb-1">Term (Months)</label><input type="number" id="term" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></div>
@@ -465,6 +466,7 @@
       } else if (s === 'loans') {
         const rec = currentLoans.find(x => x._rowIndex === r);
         document.getElementById('loan_row_index').value = r;
+        document.getElementById('edit_loan_id').value = rec.loan_id; // Capture ID for the array submission
         document.getElementById('loan_type').value = rec.loan_type;
         document.getElementById('amount').value = rec.amount;
         document.getElementById('term').value = rec.term;
@@ -480,14 +482,16 @@
     function cancelEdit(t) {
       document.getElementById(`${t}Form`).reset();
       document.getElementById(`${t}_row_index`).value = "";
-      document.getElementById(`${t}FormTitle`).textContent = `Add New ${t.charAt(0).toUpperCase() + t.slice(1)}`;
       
       if(t === 'expense') {
         document.getElementById('expenseSubmitBtn').textContent = `Save Expense`;
         document.getElementById('year').value = "2026";
       } else {
+        document.getElementById('edit_loan_id').value = ""; // Clear hidden ID
         document.getElementById('loanSubmitBtn').textContent = `Save Loan & Generate Ledger`;
       }
+      
+      document.getElementById(`${t}FormTitle`).textContent = `Add New ${t.charAt(0).toUpperCase() + t.slice(1)}`;
       document.getElementById(`${t}CancelBtn`).classList.add('hidden');
     }
 
@@ -517,8 +521,7 @@
         sheetName: 'loans',
         rowIndex: parseInt(r),
         values: [
-          // Keep this aligned with your specific sheet layout order (e.g., ID, Type, Amount, Term...)
-          // If your script requires a specific object layout for custom edit logic, handle it accordingly.
+          document.getElementById('edit_loan_id').value, // Push ID back into Column A
           loanData.loan_type, 
           loanData.amount, 
           loanData.term, 
@@ -547,8 +550,14 @@
         action: isEdit ? 'edit' : 'add', 
         sheetName: "expenses", 
         rowIndex: isEdit ? parseInt(r) : null, 
-        values: [document.getElementById('year').value, document.getElementById('month').value, document.getElementById('expense_type').value, document.getElementById('expense_amount').value] 
+        values: [
+          document.getElementById('year').value, 
+          document.getElementById('month').value, 
+          document.getElementById('expense_type').value, 
+          document.getElementById('expense_amount').value
+        ] 
       };
+      
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         if ((await res.json()).status === "success") { 
