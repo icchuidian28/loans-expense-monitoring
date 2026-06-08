@@ -181,7 +181,6 @@
   </div>
 
   <script>
-    // 🔴🔴🔴 PASTE YOUR GOOGLE SCRIPT URL HERE 🔴🔴🔴
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxaxrC2tv7nlbiX_pQbkx0kmvqrm17kvhVV5AIClKHWYinpHLU5pwq9Ou1sGQx6IyIt/exec";
     
     let currentLoans = [];
@@ -516,24 +515,18 @@
         monthly_amortization: document.getElementById('monthly_amortization').value
       };
 
-      // 🔴 CRITICAL FIX 🔴
-      // When editing, this array MUST exactly match the column layout of your 'loans' sheet from left to right.
-      // Look at your Google Sheet. If your columns are ordered differently, rearrange these lines to match!
-      // If you have a Timestamp in Column A, you must account for it (e.g., pass the original timestamp or a blank string if your script ignores it).
-      const updatedRowValues = [
-        document.getElementById('edit_loan_id').value, // Column A (Usually loan_id)
-        loanData.loan_type,                            // Column B 
-        loanData.amount,                               // Column C 
-        loanData.term,                                 // Column D 
-        loanData.date_approved,                        // Column E 
-        loanData.monthly_amortization                  // Column F 
-      ];
-
       const payload = isEdit ? {
         action: 'edit',
         sheetName: 'loans',
         rowIndex: parseInt(r),
-        values: updatedRowValues
+        values: [
+          document.getElementById('edit_loan_id').value, // Correctly puts the ID back into Column A
+          loanData.loan_type,                            // Column B
+          loanData.amount,                               // Column C
+          loanData.term,                                 // Column D
+          loanData.date_approved,                        // Column E
+          loanData.monthly_amortization                  // Column F
+        ]
       } : {
         action: 'add_loan', 
         data: loanData
